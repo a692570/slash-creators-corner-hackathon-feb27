@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Circle, Loader2, Brain } from 'lucide-react';
+import { ArrowLeft, Check, Circle, Loader2, Phone } from 'lucide-react';
 import { api, type Negotiation } from '../api/client';
 
 interface VoiceIntelligence {
@@ -37,6 +37,10 @@ export function NegotiationLive() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const [voiceIntelligence, setVoiceIntelligence] = useState<VoiceIntelligence | null>(null);
+  const [tavilyResults, setTavilyResults] = useState<any[]>([]);
+  const [yutoriResults, setYutoriResults] = useState<any[]>([]);
+  const [strategyReady, setStrategyReady] = useState(false);
+  const [strategyData, setStrategyData] = useState<any>(null);
   const confettiRef = useRef<HTMLDivElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -92,6 +96,22 @@ export function NegotiationLive() {
         console.log('[SSE] Received event:', data);
 
         switch (data.type) {
+          case 'research_complete':
+            // Tavily & Yutori research results
+            console.log('[SSE] Research complete:', data);
+            setTavilyResults(data.tavilyResults || []);
+            setYutoriResults(data.yutoriResults || []);
+            setNegotiation(prev => prev ? { ...prev, competitorRates: data.competitorRates } : null);
+            break;
+
+          case 'strategy_ready':
+            // Neo4j strategy selected
+            console.log('[SSE] Strategy ready:', data);
+            setStrategyReady(true);
+            setStrategyData(data);
+            setNegotiation(prev => prev ? { ...prev, selectedTactics: data.tactics } : null);
+            break;
+
           case 'status_change':
             setNegotiation(prev => {
               if (!prev) return null;
@@ -409,54 +429,80 @@ export function NegotiationLive() {
         </div>
       )}
 
-      {/* Research Results Panel */}
-      {negotiation.competitorRates && negotiation.competitorRates.length > 0 && (
-        <div className="mb-8 bg-[#0a0a0a] border border-[#262626] rounded-xl p-6">
+      {/* Tavily Research Results */}
+      {tavilyResults.length > 0 && (
+        <div className="mb-8 bg-gradient-to-br from-blue-500/5 to-transparent border border-blue-500/20 rounded-xl p-6 animate-[fadeIn_0.5s_ease-in]">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse"></div>
-              <h3 className="text-sm font-medium text-white">Market Research</h3>
+              <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
+              <h3 className="text-lg font-bold text-white">Tavily Market Search</h3>
             </div>
-            <div className="flex gap-2 ml-auto">
-              <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full">Tavily</span>
-              <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-1 rounded-full">Yutori</span>
-            </div>
+            <span className="ml-auto text-xs bg-blue-500 text-white px-3 py-1 rounded-full font-semibold">LIVE</span>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {negotiation.competitorRates.map((rate, index) => (
-              <div
-                key={index}
-                className="bg-[#141414] border border-[#262626] rounded-lg p-4 hover:border-[#00ff88]/30 transition-colors"
-              >
+            {tavilyResults.map((rate, index) => (
+              <div key={index} className="bg-[#141414] border border-blue-500/30 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-2">
-                  <div className="font-medium text-white">{rate.provider}</div>
-                  <div className="text-[#00ff88] font-bold text-lg">
-                    ${rate.monthlyRate}/mo
-                  </div>
+                  <div className="font-semibold text-white capitalize">{rate.provider}</div>
+                  <div className="text-blue-400 font-bold text-xl">${rate.monthlyRate}/mo</div>
                 </div>
-                <div className="text-sm text-[#888] mb-2">{rate.planName}</div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className={`px-2 py-0.5 rounded-full ${
-                    rate.source.toLowerCase().includes('tavily')
-                      ? 'bg-blue-500/10 text-blue-400'
-                      : 'bg-purple-500/10 text-purple-400'
-                  }`}>
-                    {rate.source.toLowerCase().includes('tavily') ? 'Tavily' : 'Yutori'}
-                  </span>
-                  {rate.contractTerms && (
-                    <span className="text-[#666]">{rate.contractTerms}</span>
-                  )}
-                </div>
+                <div className="text-sm text-[#aaa]">{rate.planName}</div>
               </div>
             ))}
           </div>
+          <p className="mt-4 text-xs text-blue-400 text-center">✓ Powered by Tavily Search API</p>
+        </div>
+      )}
 
-          <div className="mt-4 pt-4 border-t border-[#262626]">
-            <p className="text-xs text-[#666] text-center">
-              Real-time market data from Tavily Search API and Yutori Research Engine
-            </p>
+      {/* Yutori Deep Research Results */}
+      {yutoriResults.length > 0 && (
+        <div className="mb-8 bg-gradient-to-br from-purple-500/5 to-transparent border border-purple-500/20 rounded-xl p-6 animate-[fadeIn_0.5s_ease-in_0.3s]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-purple-500 animate-pulse"></div>
+              <h3 className="text-lg font-bold text-white">Yutori Deep Research</h3>
+            </div>
+            <span className="ml-auto text-xs bg-purple-500 text-white px-3 py-1 rounded-full font-semibold">LIVE</span>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {yutoriResults.map((rate, index) => (
+              <div key={index} className="bg-[#141414] border border-purple-500/30 rounded-lg p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="font-semibold text-white capitalize">{rate.provider}</div>
+                  <div className="text-purple-400 font-bold text-xl">${rate.monthlyRate}/mo</div>
+                </div>
+                <div className="text-sm text-[#aaa]">{rate.planName}</div>
+                {rate.contractTerms && (
+                  <div className="text-xs text-[#666] mt-2">{rate.contractTerms}</div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-purple-400 text-center">✓ Powered by Yutori Research Engine</p>
+        </div>
+      )}
+
+      {/* Neo4j Strategy Panel */}
+      {strategyReady && strategyData && (
+        <div className="mb-8 bg-gradient-to-br from-green-500/5 to-transparent border border-green-500/20 rounded-xl p-6 animate-[fadeIn_0.5s_ease-in_0.6s]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
+              <h3 className="text-lg font-bold text-white">Neo4j Strategy Selection</h3>
+            </div>
+            <span className="ml-auto text-xs bg-green-500 text-white px-3 py-1 rounded-full font-semibold">READY</span>
+          </div>
+          <div className="space-y-3">
+            <div className="text-sm text-[#aaa] mb-3">{strategyData.reasoning}</div>
+            {strategyData.tactics && strategyData.tactics.map((tactic: string, index: number) => (
+              <div key={index} className="flex items-center gap-3 bg-[#141414] border border-green-500/30 rounded-lg p-3">
+                <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-sm font-bold">{index + 1}</div>
+                <div className="text-white font-medium capitalize">{tactic.replace(/_/g, ' ')}</div>
+              </div>
+            ))}
+            <div className="text-sm text-[#666] mt-3">Expected savings: ${strategyData.expectedSavings?.toFixed(2) || 0}/mo</div>
+          </div>
+          <p className="mt-4 text-xs text-green-400 text-center">✓ Powered by Neo4j Knowledge Graph</p>
         </div>
       )}
 
@@ -481,6 +527,36 @@ export function NegotiationLive() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Telnyx Call Status Panel */}
+      {(negotiation.status === 'calling' || negotiation.status === 'negotiating') && (
+        <div className="mb-8 bg-gradient-to-br from-cyan-500/5 to-transparent border border-cyan-500/20 rounded-xl p-6 animate-[fadeIn_0.5s_ease-in]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-cyan-500 animate-pulse"></div>
+              <h3 className="text-lg font-bold text-white">
+                {negotiation.status === 'calling' ? 'Initiating Call' : 'Live Negotiation'}
+              </h3>
+            </div>
+            <span className="ml-auto text-xs bg-cyan-500 text-white px-3 py-1 rounded-full font-semibold flex items-center gap-2">
+              <Phone className="w-3 h-3" />
+              {negotiation.status === 'calling' ? 'CALLING' : 'ON CALL'}
+            </span>
+          </div>
+          <div className="bg-[#141414] border border-cyan-500/30 rounded-lg p-4">
+            <div className="text-white font-medium mb-2">📞 Calling +1 720-680-5202</div>
+            <div className="text-sm text-[#aaa]">
+              {negotiation.status === 'calling'
+                ? 'Connecting via Telnyx AI Assistant...'
+                : 'AI agent negotiating in real-time using selected tactics'}
+            </div>
+            {negotiation.telnyxCallId && (
+              <div className="text-xs text-cyan-400 mt-2">Call ID: {negotiation.telnyxCallId}</div>
+            )}
+          </div>
+          <p className="mt-4 text-xs text-cyan-400 text-center">✓ Powered by Telnyx Voice AI Platform</p>
         </div>
       )}
 
@@ -523,13 +599,13 @@ export function NegotiationLive() {
 
       {/* Voice Intelligence Panel (Modulate Integration) */}
       {voiceIntelligence && (negotiation.status === 'success' || negotiation.status === 'failed') && (
-        <div className="bg-[#141414] border border-[#00ff88]/20 rounded-2xl p-8">
+        <div className="mb-8 bg-gradient-to-br from-orange-500/5 to-transparent border border-orange-500/20 rounded-xl p-6 animate-[fadeIn_0.5s_ease-in]">
           <div className="flex items-center gap-3 mb-6">
-            <Brain className="w-6 h-6 text-[#00ff88]" />
-            <h3 className="text-xl font-semibold">Voice Intelligence</h3>
-            <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded-full">
-              Powered by Modulate Velma
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500 animate-pulse"></div>
+              <h3 className="text-lg font-bold text-white">Modulate Voice Intelligence</h3>
+            </div>
+            <span className="ml-auto text-xs bg-orange-500 text-white px-3 py-1 rounded-full font-semibold">ANALYZED</span>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mb-6">
@@ -573,10 +649,11 @@ export function NegotiationLive() {
           </div>
 
           {voiceIntelligence.piiDetected && (
-            <div className="bg-[#ffaa00]/10 border border-[#ffaa00]/30 rounded-xl p-4 text-sm text-[#ffaa00]">
+            <div className="bg-[#ffaa00]/10 border border-[#ffaa00]/30 rounded-xl p-4 text-sm text-[#ffaa00] mb-4">
               ⚠️ PII/PHI detected in conversation - redacted per compliance requirements
             </div>
           )}
+          <p className="mt-4 text-xs text-orange-400 text-center">✓ Powered by Modulate Velma-2 Batch API</p>
         </div>
       )}
 

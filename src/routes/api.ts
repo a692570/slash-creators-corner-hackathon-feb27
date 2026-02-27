@@ -30,7 +30,7 @@ import { initiateCall, handleWebhook } from '../services/voice.js';
 import { parseCCStatement } from '../services/scanner.js';
 import { createDemoIVR, DemoIVRResult } from '../services/demo-ivr.js';
 import { seedDemoBills, isDemoSeeded, getDemoUserId } from '../services/demo-seed.js';
-import { subscribe, unsubscribe, emitStatusChange, emitCompletion } from '../services/events.js';
+import { subscribe, unsubscribe, emit, emitStatusChange, emitCompletion } from '../services/events.js';
 import {
   BillCreateInput,
   BillUpdateInput,
@@ -576,13 +576,38 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
     // Start research phase
     updateNegotiationStatus(negotiation.id, 'researching');
     emitStatusChange(negotiation.id, 'researching');
-    
-    // Research competitor rates
+
+    // Research competitor rates (Tavily + Yutori in parallel)
     const competitorRates = await researchCompetitorRates(bill.provider, bill.currentRate);
-    
-    // Build strategy (async - uses graph for leverage data)
+
+    // Emit research results to show sponsor integrations
+    emit(negotiation.id, {
+      type: 'status_change',
+      data: {
+        type: 'research_complete',
+        competitorRates,
+        tavilyResults: competitorRates.filter(r => !r.source || r.source.includes('tavily')),
+        yutoriResults: competitorRates.filter(r => r.source && r.source.includes('yutori')),
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    // Build strategy (async - uses Neo4j graph for leverage data)
     const strategy = await buildStrategy(bill, competitorRates);
-    
+
+    // Emit Neo4j strategy to show graph integration
+    emit(negotiation.id, {
+      type: 'status_change',
+      data: {
+        type: 'strategy_ready',
+        tactics: strategy.tactics,
+        primaryTactic: strategy.primaryTactic,
+        expectedSavings: strategy.expectedSavings,
+        reasoning: `Selected ${strategy.tactics.length} tactics based on Neo4j graph analysis`,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     // Update negotiation with research and strategy
     updateNegotiation(negotiation.id, {
       competitorRates,

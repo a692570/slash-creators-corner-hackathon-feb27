@@ -34,6 +34,7 @@ export interface Negotiation {
   totalSavings?: number;
   competitorRates?: CompetitorRate[];
   selectedTactics?: string[];
+  telnyxCallId?: string;
   createdAt: string;
   updatedAt: string;
 }
