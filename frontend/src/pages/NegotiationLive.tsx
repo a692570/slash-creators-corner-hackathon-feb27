@@ -374,6 +374,41 @@ export function NegotiationLive() {
         </div>
       )}
 
+      {/* Neo4j Strategy Panel */}
+      {negotiation.selectedTactics && negotiation.selectedTactics.length > 0 && (
+        <div className="mb-8 bg-[#0a0a0a] border border-[#262626] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse"></div>
+              <h3 className="text-sm font-medium text-white">Negotiation Strategy</h3>
+            </div>
+            <div className="flex gap-2 ml-auto">
+              <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded-full">Neo4j Graph</span>
+            </div>
+          </div>
+
+          <div className="bg-[#141414] border border-[#262626] rounded-lg p-4 mb-4">
+            <div className="text-xs text-[#888] mb-2">AI-Selected Tactics (Graph Intelligence)</div>
+            <div className="space-y-2">
+              {negotiation.selectedTactics.map((tactic, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#00ff88]/10 text-[#00ff88] text-xs font-bold">
+                    {index + 1}
+                  </div>
+                  <div className="text-sm text-white">
+                    {tactic.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-xs text-[#666] text-center">
+            Strategy built using Neo4j knowledge graph • Historical retention data • Success patterns
+          </div>
+        </div>
+      )}
+
       {/* Research Results Panel */}
       {negotiation.competitorRates && negotiation.competitorRates.length > 0 && (
         <div className="mb-8 bg-[#0a0a0a] border border-[#262626] rounded-xl p-6">

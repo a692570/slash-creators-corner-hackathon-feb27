@@ -33,6 +33,7 @@ export interface Negotiation {
   annualSavings?: number;
   totalSavings?: number;
   competitorRates?: CompetitorRate[];
+  selectedTactics?: string[];
   createdAt: string;
   updatedAt: string;
 }
