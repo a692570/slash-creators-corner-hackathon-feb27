@@ -15,6 +15,14 @@ export interface Bill {
   createdAt: string;
 }
 
+export interface CompetitorRate {
+  provider: string;
+  planName: string;
+  monthlyRate: number;
+  contractTerms?: string;
+  source: string;
+}
+
 export interface Negotiation {
   id: string;
   billId: string;
@@ -24,6 +32,7 @@ export interface Negotiation {
   monthlySavings?: number;
   annualSavings?: number;
   totalSavings?: number;
+  competitorRates?: CompetitorRate[];
   createdAt: string;
   updatedAt: string;
 }

@@ -374,6 +374,57 @@ export function NegotiationLive() {
         </div>
       )}
 
+      {/* Research Results Panel */}
+      {negotiation.competitorRates && negotiation.competitorRates.length > 0 && (
+        <div className="mb-8 bg-[#0a0a0a] border border-[#262626] rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#00ff88] animate-pulse"></div>
+              <h3 className="text-sm font-medium text-white">Market Research</h3>
+            </div>
+            <div className="flex gap-2 ml-auto">
+              <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded-full">Tavily</span>
+              <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-1 rounded-full">Yutori</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {negotiation.competitorRates.map((rate, index) => (
+              <div
+                key={index}
+                className="bg-[#141414] border border-[#262626] rounded-lg p-4 hover:border-[#00ff88]/30 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="font-medium text-white">{rate.provider}</div>
+                  <div className="text-[#00ff88] font-bold text-lg">
+                    ${rate.monthlyRate}/mo
+                  </div>
+                </div>
+                <div className="text-sm text-[#888] mb-2">{rate.planName}</div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={`px-2 py-0.5 rounded-full ${
+                    rate.source.toLowerCase().includes('tavily')
+                      ? 'bg-blue-500/10 text-blue-400'
+                      : 'bg-purple-500/10 text-purple-400'
+                  }`}>
+                    {rate.source.toLowerCase().includes('tavily') ? 'Tavily' : 'Yutori'}
+                  </span>
+                  {rate.contractTerms && (
+                    <span className="text-[#666]">{rate.contractTerms}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-[#262626]">
+            <p className="text-xs text-[#666] text-center">
+              Real-time market data from Tavily Search API and Yutori Research Engine
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Live Transcript Panel */}
       {transcript.length > 0 && (
         <div className="mb-8 bg-[#0a0a0a] border border-[#262626] rounded-xl p-4">

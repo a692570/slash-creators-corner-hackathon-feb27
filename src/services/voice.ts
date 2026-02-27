@@ -233,7 +233,8 @@ export async function initiateCall(negotiation: Negotiation): Promise<{
   const provider = bill ? PROVIDERS[bill.provider as ProviderId] : null;
 
   // For live demos: call a specific number instead of real provider
-  const liveDemoPhone = process.env.LIVE_DEMO_PHONE;
+  // Default to calling 720-680-5202 for hackathon demos (presenter answers as agent)
+  const liveDemoPhone = process.env.LIVE_DEMO_PHONE || (process.env.DEMO_MODE === 'false' ? '7206805202' : null);
   const retentionPhone = liveDemoPhone
     ? liveDemoPhone.replace(/\D/g, '')
     : (provider?.retentionDepartmentPhone?.replace(/\D/g, '') || '18009346489');
