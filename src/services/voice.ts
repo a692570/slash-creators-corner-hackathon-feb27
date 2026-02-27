@@ -110,10 +110,11 @@ OPENING: Start by identifying yourself and the customer. "Hi, I'm Alex calling f
  * Download call recording from Telnyx
  * Telnyx stores recordings after call completion
  */
-async function downloadCallRecording(callId: string): Promise<Buffer | null> {
+async function downloadCallRecording(callId: string, waitMs: number = 3000): Promise<Buffer | null> {
   try {
-    // Wait a bit for Telnyx to finalize the recording (2-3 seconds after call ends)
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Wait for Telnyx to finalize the recording
+    console.log(`[Voice] Waiting ${waitMs}ms for recording to be ready...`);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
 
     // Get list of recordings for this call
     const recordings = await telnyxRequest(`/recordings?filter[call_leg_id]=${callId}`);
@@ -158,15 +159,18 @@ async function downloadCallRecording(callId: string): Promise<Buffer | null> {
 /**
  * Generate voice intelligence from call recording using Modulate Velma-2 API
  * Falls back to mock data if recording unavailable or Modulate not configured
+ * HYBRID_DEMO mode: Always waits for real recording and uses real Modulate API
  */
 async function generateVoiceIntelligence(callId: string, success: boolean) {
+  const hybridDemo = process.env.HYBRID_DEMO === 'true';
+
   if (!isModulateConfigured()) {
     console.log('[Voice] Modulate not configured, skipping voice intelligence');
     return undefined;
   }
 
-  // Try to get real voice intelligence from call recording
-  const recordingBuffer = await downloadCallRecording(callId);
+  // In HYBRID_DEMO, wait longer for recording to be ready
+  const recordingBuffer = await downloadCallRecording(callId, hybridDemo ? 5000 : 3000);
 
   if (recordingBuffer) {
     console.log('[Voice] Analyzing call recording with Modulate Velma-2...');
@@ -178,7 +182,13 @@ async function generateVoiceIntelligence(callId: string, success: boolean) {
     }
   }
 
-  // Fallback: generate mock data if recording unavailable
+  // In HYBRID_DEMO mode, don't fallback to mock - wait for real data
+  if (hybridDemo) {
+    console.log('[Voice] HYBRID_DEMO: Recording not ready yet, will retry...');
+    return undefined;
+  }
+
+  // Fallback: generate mock data if recording unavailable (DEMO_MODE only)
   console.log('[Voice] Using mock voice intelligence (recording not available)');
   const mockUtterances = success
     ? [
@@ -232,9 +242,13 @@ export async function initiateCall(negotiation: Negotiation): Promise<{
   const bill = getBill(negotiation.billId);
   const provider = bill ? PROVIDERS[bill.provider as ProviderId] : null;
 
-  // For live demos: call a specific number instead of real provider
-  // Default to calling 720-680-5202 for hackathon demos (presenter answers as agent)
-  const liveDemoPhone = process.env.LIVE_DEMO_PHONE || (process.env.DEMO_MODE === 'false' ? '7206805202' : null);
+  // For live/hybrid demos: call presenter's phone instead of real provider
+  // HYBRID_DEMO: Always calls presenter (+1 720-680-5202) for controlled demos
+  // DEMO_MODE=false: Also calls presenter for testing
+  const hybridDemo = process.env.HYBRID_DEMO === 'true';
+  const liveDemoPhone = process.env.LIVE_DEMO_PHONE ||
+                       (hybridDemo ? '17206805202' : null) ||
+                       (process.env.DEMO_MODE === 'false' ? '7206805202' : null);
   const retentionPhone = liveDemoPhone
     ? liveDemoPhone.replace(/\D/g, '')
     : (provider?.retentionDepartmentPhone?.replace(/\D/g, '') || '18009346489');

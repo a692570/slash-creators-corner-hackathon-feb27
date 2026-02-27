@@ -591,11 +591,12 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
     });
     emitStatusChange(negotiation.id, 'calling');
     
-    // Check if DEMO_MODE is enabled for reliable hackathon demos
+    // Check demo modes
     const demoMode = process.env.DEMO_MODE === 'true';
+    const hybridDemo = process.env.HYBRID_DEMO === 'true';
 
-    if (demoMode) {
-      // DEMO MODE: Simulate negotiation without real call
+    if (demoMode && !hybridDemo) {
+      // PURE DEMO MODE: Simulate negotiation without real call
       console.log('[DEMO MODE] Simulating negotiation for bill:', id);
       updateNegotiation(negotiation.id, {
         startedAt: new Date(),
