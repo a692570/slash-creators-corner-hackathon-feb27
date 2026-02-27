@@ -609,12 +609,32 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
         const monthlySavings = bill.currentRate - targetRate;
         const totalSavings = monthlySavings * 12;
 
+        // Generate mock voice intelligence for demo (Modulate integration showcase)
+        const mockVoiceIntelligence = {
+          emotions: { Pleasant: 0.35, Confident: 0.25, Calm: 0.20, Satisfied: 0.15, Neutral: 0.05 },
+          dominantEmotion: 'Pleasant',
+          speakerCount: 2,
+          piiDetected: false,
+          utteranceCount: 7,
+          durationMs: 8000,
+          emotionTimeline: [
+            { time_ms: 0, emotion: 'Neutral', speaker: 1, text: 'Hello, this is customer retention' },
+            { time_ms: 2500, emotion: 'Calm', speaker: 0, text: 'I was hoping to discuss my current rate' },
+            { time_ms: 6000, emotion: 'Pleasant', speaker: 1, text: 'I see you have been with us for a while' },
+            { time_ms: 9000, emotion: 'Confident', speaker: 0, text: `Yes, and I found ${competitorRates?.[0]?.provider || 'competitors'} offering better rates` },
+            { time_ms: 13000, emotion: 'Cooperative', speaker: 1, text: 'Let me see what I can do for you' },
+            { time_ms: 16000, emotion: 'Pleasant', speaker: 1, text: `I can offer you $${targetRate.toFixed(2)} per month` },
+            { time_ms: 19000, emotion: 'Satisfied', speaker: 0, text: 'That sounds great, thank you' },
+          ],
+        };
+
         updateNegotiation(negotiation.id, {
           status: 'success',
           newRate: targetRate,
           monthlySavings,
           totalSavings,
           completedAt: new Date(),
+          voiceIntelligence: mockVoiceIntelligence,
         });
 
         updateBillStatus(id, 'active');
