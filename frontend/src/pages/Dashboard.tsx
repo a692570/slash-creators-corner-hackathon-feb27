@@ -13,17 +13,10 @@ const defaultStats: DashboardStats = {
   billsTracked: 0,
 };
 
-interface SponsorStatus {
-  name: string;
-  configured: boolean;
-  status: string;
-}
-
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [bills, setBills] = useState<Bill[]>([]);
   const [negotiations, setNegotiations] = useState<Negotiation[]>([]);
-  const [sponsors, setSponsors] = useState<SponsorStatus[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,15 +29,7 @@ export function Dashboard() {
         setStats(statsData);
         setBills(billsData);
         setNegotiations(negsData);
-        const demoStatus = await api.getDemoStatus().catch(() => null);
-        if (demoStatus?.sponsors) {
-          const sponsorRows: SponsorStatus[] = Object.entries(demoStatus.sponsors).map(([name, value]) => ({
-            name,
-            configured: value.configured,
-            status: value.status,
-          }));
-          setSponsors(sponsorRows);
-        }
+        // Sponsor status removed from UI - integration proof is in the negotiation flow
       } catch (error) {
         console.log('Using default data - API not available');
       }
@@ -111,25 +96,7 @@ export function Dashboard() {
         />
       </div>
 
-      {sponsors.length > 0 && (
-        <div className="bg-[#141414] border border-[#262626] rounded-xl mb-6">
-          <div className="p-5 border-b border-[#262626]">
-            <h2 className="font-semibold">Sponsor Integration Status</h2>
-            <p className="text-sm text-[#888] mt-1">Live adapter readiness for hackathon judging</p>
-          </div>
-          <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
-            {sponsors.map((sponsor) => (
-              <div key={sponsor.name} className="rounded-lg border border-[#262626] p-3 bg-[#101010]">
-                <div className="text-sm font-medium capitalize mb-1">{sponsor.name}</div>
-                <div className={`text-xs ${sponsor.configured ? 'text-[#00ff88]' : 'text-yellow-400'}`}>
-                  {sponsor.configured ? 'Configured' : 'Pending Credentials'}
-                </div>
-                <div className="text-xs text-[#888] mt-1">{sponsor.status}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Sponsor integration status removed - too technical for demo */}
 
       {/* Bills List */}
       {bills.length > 0 && (
