@@ -5,7 +5,8 @@
 
 const MODULATE_API_KEY = process.env.MODULATE_API_KEY || '';
 const BATCH_URL = 'https://modulate-developer-apis.com/api/velma-2-stt-batch';
-const STREAMING_URL = 'wss://modulate-developer-apis.com/api/velma-2-stt-streaming';
+// Streaming URL for future real-time integration:
+// wss://modulate-developer-apis.com/api/velma-2-stt-streaming
 
 // ===========================================
 // TYPES
@@ -58,7 +59,7 @@ export async function analyzeBatchAudio(audioBuffer: Buffer, filename: string): 
 
   try {
     const formData = new FormData();
-    formData.append('upload_file', new Blob([audioBuffer]), filename);
+    formData.append('upload_file', new Blob([new Uint8Array(audioBuffer)]), filename);
     formData.append('speaker_diarization', 'true');
     formData.append('emotion_signal', 'true');
     formData.append('accent_signal', 'true');
@@ -75,13 +76,39 @@ export async function analyzeBatchAudio(audioBuffer: Buffer, filename: string): 
       return null;
     }
 
-    const result: VelmaBatchResult = await response.json();
+    const result = await response.json() as VelmaBatchResult;
     console.log(`[Modulate] Batch analysis complete: ${result.utterances.length} utterances, ${result.duration_ms}ms`);
     return result;
   } catch (error) {
     console.error('[Modulate] Batch analysis failed:', error);
     return null;
   }
+}
+
+// ===========================================
+// MOCK DATA (for hackathon demo)
+// ===========================================
+
+export function generateMockVoiceIntelligence(success: boolean): VoiceIntelligence {
+  const emotions: Record<string, number> = success
+    ? { Neutral: 8, Cooperative: 4, Interested: 3, Relieved: 2 }
+    : { Neutral: 6, Frustrated: 4, Resistant: 3, Concerned: 2 };
+
+  return {
+    emotions,
+    dominantEmotion: success ? 'Cooperative' : 'Frustrated',
+    speakerCount: 2,
+    piiDetected: false,
+    utteranceCount: success ? 17 : 12,
+    durationMs: success ? 245000 : 180000,
+    emotionTimeline: [
+      { time_ms: 0, emotion: 'Neutral', speaker: 1, text: 'Thank you for calling...' },
+      { time_ms: 15000, emotion: 'Neutral', speaker: 2, text: 'I\'m calling about my account...' },
+      { time_ms: 45000, emotion: success ? 'Interested' : 'Resistant', speaker: 1, text: success ? 'Let me see what I can do...' : 'Your plan is already competitive...' },
+      { time_ms: 90000, emotion: success ? 'Cooperative' : 'Frustrated', speaker: 1, text: success ? 'I found a loyalty discount...' : 'I understand your concern but...' },
+      { time_ms: 120000, emotion: success ? 'Relieved' : 'Concerned', speaker: 2, text: success ? 'That sounds great...' : 'I may need to switch providers...' },
+    ],
+  };
 }
 
 // ===========================================
