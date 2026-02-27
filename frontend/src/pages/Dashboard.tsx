@@ -44,23 +44,31 @@ export function Dashboard() {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined || amount === null) return '$0';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     });
   };
 
-  // Safety: ensure bills and negotiations are always valid arrays
-  const safeBills = Array.isArray(bills) ? bills.filter(b => b && b.id && b.provider) : [];
-  const safeNegotiations = Array.isArray(negotiations) ? negotiations.filter(n => n && n.id) : [];
+  // Safety: ensure bills and negotiations are always valid arrays with required fields
+  const safeBills = Array.isArray(bills)
+    ? bills.filter(b => b && b.id && b.provider && b.currentRate !== undefined)
+    : [];
+  const safeNegotiations = Array.isArray(negotiations)
+    ? negotiations.filter(n => n && n.id && n.billId && n.createdAt)
+    : [];
 
   return (
     <div className="p-8">
