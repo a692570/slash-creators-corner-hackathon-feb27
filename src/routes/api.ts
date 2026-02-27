@@ -738,6 +738,53 @@ router.get('/negotiations/:id', (req: Request, res: Response): void => {
 });
 
 /**
+ * GET /api/negotiations/:id/voice-intelligence - Get Modulate voice intelligence analysis
+ */
+router.get('/negotiations/:id/voice-intelligence', (req: Request, res: Response): void => {
+  try {
+    const userId = getUserId(req);
+    const id = String(req.params.id);
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+      });
+      return;
+    }
+
+    const negotiation = getNegotiation(id);
+
+    if (!negotiation || negotiation.userId !== userId) {
+      res.status(404).json({
+        success: false,
+        error: 'Negotiation not found',
+      });
+      return;
+    }
+
+    if (!negotiation.voiceIntelligence) {
+      res.status(404).json({
+        success: false,
+        error: 'Voice intelligence not available for this negotiation',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: negotiation.voiceIntelligence,
+    });
+  } catch (error) {
+    console.error('Get voice intelligence error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+});
+
+/**
  * GET /api/negotiations/:id/stream - SSE endpoint for real-time updates
  */
 router.get('/negotiations/:id/stream', (req: Request, res: Response): void => {

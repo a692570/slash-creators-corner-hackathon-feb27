@@ -4,15 +4,16 @@
 
 import { Negotiation, PROVIDERS, ProviderId } from '../types/index.js';
 import { getOrCreateAssistant } from './assistant.js';
-import { 
-  getNegotiation, 
-  updateNegotiation, 
+import {
+  getNegotiation,
+  updateNegotiation,
   getBill,
-  updateBillStatus 
+  updateBillStatus
 } from './storage.js';
 import { storeNegotiationResult } from './graph.js';
 import { parseNegotiationOutcome } from './outcome-parser.js';
 import { emitTranscript, emitCompletion, emitError, emitStatusChange } from './events.js';
+import { buildVoiceIntelligence, isModulateConfigured } from './modulate.js';
 
 const TELNYX_API_BASE = 'https://api.telnyx.com/v2';
 
@@ -103,6 +104,44 @@ STYLE:
 - Thank the rep at the end regardless of outcome
 
 OPENING: Start by identifying yourself and the customer. "Hi, I'm Alex calling from SaveRight Consumer Services on behalf of ${customerName}, account ${accountRef}. I'm hoping to discuss their current rate."`;
+}
+
+/**
+ * Generate mock voice intelligence for demo purposes
+ * In production, this would analyze the actual call recording via Modulate's Velma API
+ */
+function generateMockVoiceIntelligence(success: boolean, _durationMs: number = 180000) {
+  // Mock utterances with emotions based on negotiation outcome
+  const mockUtterances = success
+    ? [
+        { text: 'Hello, this is customer retention', emotion: 'Neutral', speaker: 1, start_ms: 0, duration_ms: 2000 },
+        { text: 'I was hoping to discuss my current rate', emotion: 'Calm', speaker: 0, start_ms: 2500, duration_ms: 3000 },
+        { text: 'I see you have been with us for a while', emotion: 'Pleasant', speaker: 1, start_ms: 6000, duration_ms: 2500 },
+        { text: 'Yes, and I have been comparing rates with other providers', emotion: 'Confident', speaker: 0, start_ms: 9000, duration_ms: 3500 },
+        { text: 'Let me see what I can do for you', emotion: 'Cooperative', speaker: 1, start_ms: 13000, duration_ms: 2000 },
+        { text: 'I can offer you a promotional rate', emotion: 'Pleasant', speaker: 1, start_ms: 16000, duration_ms: 2500 },
+        { text: 'That sounds great, thank you', emotion: 'Satisfied', speaker: 0, start_ms: 19000, duration_ms: 2000 },
+      ]
+    : [
+        { text: 'Hello, this is customer service', emotion: 'Neutral', speaker: 1, start_ms: 0, duration_ms: 2000 },
+        { text: 'I wanted to see if we could adjust my rate', emotion: 'Hopeful', speaker: 0, start_ms: 2500, duration_ms: 3000 },
+        { text: 'Unfortunately that rate is the best we can offer', emotion: 'Firm', speaker: 1, start_ms: 6000, duration_ms: 2500 },
+        { text: 'Are there no promotions available?', emotion: 'Disappointed', speaker: 0, start_ms: 9000, duration_ms: 2500 },
+        { text: 'Not at this time', emotion: 'Firm', speaker: 1, start_ms: 12000, duration_ms: 1500 },
+      ];
+
+  return buildVoiceIntelligence(
+    mockUtterances.map((u, i) => ({
+      utterance_uuid: `mock-${i}`,
+      text: u.text,
+      start_ms: u.start_ms,
+      duration_ms: u.duration_ms,
+      speaker: u.speaker,
+      language: 'en',
+      emotion: u.emotion,
+      accent: null,
+    }))
+  );
 }
 
 /**
@@ -305,15 +344,22 @@ export async function handleWebhook(event: {
             confidence: outcome.confidence,
           });
           
+          // Generate voice intelligence (Modulate integration)
+          // For demo: generate mock data. In production: download recording and use analyzeBatchAudio()
+          const voiceIntelligence = isModulateConfigured()
+            ? generateMockVoiceIntelligence(outcome.success)
+            : undefined;
+
           // Update the negotiation record
           updateNegotiation(callData.negotiationId, {
             status: outcome.success ? 'success' : 'failed',
             newRate: outcome.newRate,
             monthlySavings: outcome.monthlySavings,
             totalSavings: outcome.totalSavings,
+            voiceIntelligence,
             completedAt: new Date(),
           });
-          
+
           // Emit SSE completion event
           emitCompletion(callData.negotiationId, {
             success: outcome.success,

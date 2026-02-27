@@ -1,7 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Circle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Circle, Loader2, Brain } from 'lucide-react';
 import { api, type Negotiation } from '../api/client';
+
+interface VoiceIntelligence {
+  emotions: Record<string, number>;
+  dominantEmotion: string;
+  speakerCount: number;
+  piiDetected: boolean;
+  utteranceCount: number;
+  durationMs: number;
+  emotionTimeline: Array<{ time_ms: number; emotion: string; speaker: number; text: string }>;
+}
 
 const STEPS = [
   { id: 'pending', label: 'Initializing' },
@@ -26,6 +36,7 @@ export function NegotiationLive() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
+  const [voiceIntelligence, setVoiceIntelligence] = useState<VoiceIntelligence | null>(null);
   const confettiRef = useRef<HTMLDivElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -185,6 +196,32 @@ export function NegotiationLive() {
       createConfetti();
     }
   }, [negotiation?.status, showConfetti]);
+
+  // Fetch voice intelligence when negotiation completes
+  useEffect(() => {
+    if (!id || !negotiation) return;
+    if (negotiation.status !== 'success' && negotiation.status !== 'failed') return;
+
+    const fetchVoiceIntelligence = async () => {
+      try {
+        const response = await fetch(`/api/negotiations/${id}/voice-intelligence`, {
+          headers: {
+            'x-user-id': localStorage.getItem('slash_demo_user_id') || '',
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setVoiceIntelligence(data.data);
+          }
+        }
+      } catch (error) {
+        console.log('Voice intelligence not available:', error);
+      }
+    };
+
+    fetchVoiceIntelligence();
+  }, [id, negotiation?.status]);
 
   const createConfetti = () => {
     const container = confettiRef.current;
@@ -395,6 +432,65 @@ export function NegotiationLive() {
             </div>
             <p className="text-[#888] text-sm mt-2">saved every year</p>
           </div>
+        </div>
+      )}
+
+      {/* Voice Intelligence Panel (Modulate Integration) */}
+      {voiceIntelligence && (negotiation.status === 'success' || negotiation.status === 'failed') && (
+        <div className="bg-[#141414] border border-[#00ff88]/20 rounded-2xl p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <Brain className="w-6 h-6 text-[#00ff88]" />
+            <h3 className="text-xl font-semibold">Voice Intelligence</h3>
+            <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-1 rounded-full">
+              Powered by Modulate Velma
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4">
+              <div className="text-[#888] text-sm mb-1">Dominant Emotion</div>
+              <div className="text-2xl font-bold text-[#00ff88]">
+                {voiceIntelligence.dominantEmotion}
+              </div>
+            </div>
+            <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4">
+              <div className="text-[#888] text-sm mb-1">Speakers</div>
+              <div className="text-2xl font-bold">{voiceIntelligence.speakerCount}</div>
+            </div>
+            <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4">
+              <div className="text-[#888] text-sm mb-1">Duration</div>
+              <div className="text-2xl font-bold">
+                {Math.floor(voiceIntelligence.durationMs / 1000)}s
+              </div>
+            </div>
+            <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4">
+              <div className="text-[#888] text-sm mb-1">Utterances</div>
+              <div className="text-2xl font-bold">{voiceIntelligence.utteranceCount}</div>
+            </div>
+          </div>
+
+          <div className="bg-[#0a0a0a] border border-[#262626] rounded-xl p-4 mb-4">
+            <div className="text-sm font-medium text-[#888] mb-3">Emotion Distribution</div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(voiceIntelligence.emotions).map(([emotion, count]) => (
+                <div
+                  key={emotion}
+                  className="flex items-center gap-2 bg-[#141414] px-3 py-2 rounded-lg"
+                >
+                  <span className="text-sm">{emotion}</span>
+                  <span className="text-xs bg-[#00ff88]/10 text-[#00ff88] px-2 py-0.5 rounded-full">
+                    {count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {voiceIntelligence.piiDetected && (
+            <div className="bg-[#ffaa00]/10 border border-[#ffaa00]/30 rounded-xl p-4 text-sm text-[#ffaa00]">
+              ⚠️ PII/PHI detected in conversation - redacted per compliance requirements
+            </div>
+          )}
         </div>
       )}
 

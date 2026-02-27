@@ -197,10 +197,21 @@ export interface Negotiation {
   newRate?: number;
   monthlySavings?: number;
   totalSavings?: number;
-  
+
+  // Voice Intelligence (Modulate)
+  voiceIntelligence?: {
+    emotions: Record<string, number>;
+    dominantEmotion: string;
+    speakerCount: number;
+    piiDetected: boolean;
+    utteranceCount: number;
+    durationMs: number;
+    emotionTimeline: Array<{ time_ms: number; emotion: string; speaker: number; text: string }>;
+  };
+
   // History
   attempts: NegotiationAttempt[];
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
