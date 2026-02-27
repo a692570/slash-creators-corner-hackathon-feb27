@@ -13,7 +13,7 @@ import {
 import { storeNegotiationResult } from './graph.js';
 import { parseNegotiationOutcome } from './outcome-parser.js';
 import { emitTranscript, emitCompletion, emitError, emitStatusChange } from './events.js';
-import { buildVoiceIntelligence, isModulateConfigured } from './modulate.js';
+import { buildVoiceIntelligence, isModulateConfigured, analyzeBatchAudio } from './modulate.js';
 
 const TELNYX_API_BASE = 'https://api.telnyx.com/v2';
 
@@ -107,11 +107,79 @@ OPENING: Start by identifying yourself and the customer. "Hi, I'm Alex calling f
 }
 
 /**
- * Generate mock voice intelligence for demo purposes
- * In production, this would analyze the actual call recording via Modulate's Velma API
+ * Download call recording from Telnyx
+ * Telnyx stores recordings after call completion
  */
-function generateMockVoiceIntelligence(success: boolean, _durationMs: number = 180000) {
-  // Mock utterances with emotions based on negotiation outcome
+async function downloadCallRecording(callId: string): Promise<Buffer | null> {
+  try {
+    // Wait a bit for Telnyx to finalize the recording (2-3 seconds after call ends)
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Get list of recordings for this call
+    const recordings = await telnyxRequest(`/recordings?filter[call_leg_id]=${callId}`);
+
+    if (!recordings?.data || recordings.data.length === 0) {
+      console.warn(`[Voice] No recording found for call ${callId}`);
+      return null;
+    }
+
+    // Get the most recent recording
+    const recording = recordings.data[0];
+    const downloadUrl = recording.download_urls?.mp3 || recording.download_urls?.wav;
+
+    if (!downloadUrl) {
+      console.warn(`[Voice] No download URL for recording ${recording.id}`);
+      return null;
+    }
+
+    console.log(`[Voice] Downloading recording from: ${downloadUrl}`);
+
+    // Download the audio file
+    const apiKey = process.env.TELNYX_API_KEY;
+    const response = await fetch(downloadUrl, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[Voice] Failed to download recording: ${response.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error('[Voice] Error downloading call recording:', error);
+    return null;
+  }
+}
+
+/**
+ * Generate voice intelligence from call recording using Modulate Velma-2 API
+ * Falls back to mock data if recording unavailable or Modulate not configured
+ */
+async function generateVoiceIntelligence(callId: string, success: boolean) {
+  if (!isModulateConfigured()) {
+    console.log('[Voice] Modulate not configured, skipping voice intelligence');
+    return undefined;
+  }
+
+  // Try to get real voice intelligence from call recording
+  const recordingBuffer = await downloadCallRecording(callId);
+
+  if (recordingBuffer) {
+    console.log('[Voice] Analyzing call recording with Modulate Velma-2...');
+    const result = await analyzeBatchAudio(recordingBuffer, `call-${callId}.mp3`);
+
+    if (result && result.utterances.length > 0) {
+      console.log(`[Voice] Modulate analysis complete: ${result.utterances.length} utterances`);
+      return buildVoiceIntelligence(result.utterances);
+    }
+  }
+
+  // Fallback: generate mock data if recording unavailable
+  console.log('[Voice] Using mock voice intelligence (recording not available)');
   const mockUtterances = success
     ? [
         { text: 'Hello, this is customer retention', emotion: 'Neutral', speaker: 1, start_ms: 0, duration_ms: 2000 },
@@ -345,10 +413,12 @@ export async function handleWebhook(event: {
           });
           
           // Generate voice intelligence (Modulate integration)
-          // For demo: generate mock data. In production: download recording and use analyzeBatchAudio()
-          const voiceIntelligence = isModulateConfigured()
-            ? generateMockVoiceIntelligence(outcome.success)
-            : undefined;
+          // Downloads call recording from Telnyx, analyzes with Modulate Velma-2 API
+          // Falls back to mock data if recording unavailable
+          const voiceIntelligence = await generateVoiceIntelligence(
+            payload.call_leg_id || payload.call_session_id || '',
+            outcome.success
+          );
 
           // Update the negotiation record
           updateNegotiation(callData.negotiationId, {
