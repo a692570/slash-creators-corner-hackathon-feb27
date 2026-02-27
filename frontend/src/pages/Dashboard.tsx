@@ -62,13 +62,9 @@ export function Dashboard() {
     });
   };
 
-  // Safety: ensure bills and negotiations are always valid arrays with required fields
-  const safeBills = Array.isArray(bills)
-    ? bills.filter(b => b && b.id && b.provider && b.currentRate !== undefined)
-    : [];
-  const safeNegotiations = Array.isArray(negotiations)
-    ? negotiations.filter(n => n && n.id && n.billId && n.createdAt)
-    : [];
+  // Safety: ensure bills and negotiations are always valid arrays
+  const safeBills = Array.isArray(bills) ? bills.filter(b => b && b.id && b.provider) : [];
+  const safeNegotiations = Array.isArray(negotiations) ? negotiations.filter(n => n && n.id) : [];
 
   return (
     <div className="p-8">
