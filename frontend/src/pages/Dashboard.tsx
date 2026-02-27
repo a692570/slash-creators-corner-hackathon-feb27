@@ -4,7 +4,7 @@ import { DollarSign, TrendingUp, Percent, Receipt, Plus, ArrowRight, Phone } fro
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { ProviderLogo } from '../components/ProviderLogo';
-import { api, type DashboardStats, type Bill, type Negotiation } from '../api/client';
+import { api, getDemoUserId, initDemoUser, type DashboardStats, type Bill, type Negotiation } from '../api/client';
 
 const defaultStats: DashboardStats = {
   totalSavings: 0,
@@ -22,9 +22,9 @@ export function Dashboard() {
     const fetchData = async () => {
       try {
         // Ensure demo user is initialized
-        if (!api.getDemoUserId()) {
+        if (!getDemoUserId()) {
           console.log('[Dashboard] Re-initializing demo user...');
-          await api.initDemoUser();
+          await initDemoUser();
         }
 
         const [statsData, billsData, negsData] = await Promise.all([
