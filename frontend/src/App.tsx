@@ -18,7 +18,7 @@ function App() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-[#00ff88] text-lg">Loading Slash...</div>
       </div>
     );
