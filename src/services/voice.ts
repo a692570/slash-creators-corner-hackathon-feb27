@@ -231,8 +231,18 @@ export async function initiateCall(negotiation: Negotiation): Promise<{
   // Determine the number to call
   const bill = getBill(negotiation.billId);
   const provider = bill ? PROVIDERS[bill.provider as ProviderId] : null;
-  const retentionPhone = provider?.retentionDepartmentPhone?.replace(/\D/g, '') || '18009346489';
+
+  // For live demos: call a specific number instead of real provider
+  const liveDemoPhone = process.env.LIVE_DEMO_PHONE;
+  const retentionPhone = liveDemoPhone
+    ? liveDemoPhone.replace(/\D/g, '')
+    : (provider?.retentionDepartmentPhone?.replace(/\D/g, '') || '18009346489');
+
   const fromNumber = phoneNumber.replace(/\D/g, '');
+
+  if (liveDemoPhone) {
+    console.log(`[LIVE DEMO MODE] Calling demo number: ${liveDemoPhone} instead of provider retention`);
+  }
 
   // Step 1: Dial the provider
   const callResult = await telnyxRequest('/calls', 'POST', {
