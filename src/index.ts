@@ -25,19 +25,10 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'slash-api'
-  });
-});
-
-// Hello world endpoint
-app.get('/', (_req: Request, res: Response) => {
-  res.json({ 
-    message: 'Welcome to Slash API',
-    version: '1.0.0',
-    docs: '/api'
   });
 });
 
@@ -58,15 +49,15 @@ app.get('/api', (_req: Request, res: Response) => {
   });
 });
 
-// API routes
+// API routes (must come before static files to take precedence)
 app.use('/api', apiRouter);
 
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// SPA catch-all - serve index.html for client-side routing
-// Express 5 requires {*path} syntax for wildcard routes
-app.get('{*path}', (_req: Request, res: Response) => {
+// SPA catch-all - serve index.html for all non-API routes
+// This handles client-side routing (React Router)
+app.get('*', (_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
