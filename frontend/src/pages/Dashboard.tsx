@@ -21,6 +21,12 @@ export function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Ensure demo user is initialized
+        if (!api.getDemoUserId()) {
+          console.log('[Dashboard] Re-initializing demo user...');
+          await api.initDemoUser();
+        }
+
         const [statsData, billsData, negsData] = await Promise.all([
           api.getDashboardStats().catch(() => defaultStats),
           api.getBills().catch(() => []),
@@ -34,7 +40,7 @@ export function Dashboard() {
         console.log('Using default data - API not available');
       }
     };
-    
+
     fetchData();
   }, []);
 

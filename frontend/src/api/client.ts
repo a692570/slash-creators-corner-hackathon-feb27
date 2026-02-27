@@ -216,16 +216,27 @@ export const api = {
   
   // Dashboard
   getDashboardStats: async (): Promise<DashboardStats> => {
-    const res = await fetchJSON<any>(`${API_BASE}/dashboard`);
-    // Backend returns { success, data: { user, stats, recentNegotiations, activeBills } }
-    const stats = res?.data?.stats || res?.data || res;
-    return {
-      totalSavings: stats.totalMonthlySavings || stats.totalSavings || 0,
-      activeNegotiations: stats.activeNegotiations || 0,
-      successRate: stats.successRate || 0,
-      billsTracked: stats.totalBills || stats.billsTracked || 0,
-      ...stats,
-    };
+    try {
+      const res = await fetchJSON<any>(`${API_BASE}/dashboard`);
+      // Backend returns { success, data: { user, stats, recentNegotiations, activeBills } }
+      const stats = res?.data?.stats || res?.data || res;
+      return {
+        totalSavings: stats.totalMonthlySavings || stats.totalSavings || 0,
+        activeNegotiations: stats.activeNegotiations || 0,
+        successRate: stats.successRate || 0,
+        billsTracked: stats.totalBills || stats.billsTracked || 0,
+        ...stats,
+      };
+    } catch (error) {
+      console.error('[API] getDashboardStats failed - check if user is authenticated:', error);
+      // Return defaults to prevent crash
+      return {
+        totalSavings: 0,
+        activeNegotiations: 0,
+        successRate: 0,
+        billsTracked: 0,
+      };
+    }
   },
 
   // Graph insights
