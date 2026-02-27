@@ -573,6 +573,23 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
     // Create negotiation record with customer name
     const negotiation = createNegotiation(id, userId, bill.currentRate, 'Sarah Mitchell');
     
+    // Send response immediately, run negotiate flow async
+    res.status(202).json({
+      success: true,
+      data: {
+        negotiationId: negotiation.id,
+        status: 'researching',
+        estimatedDuration: '5-10 minutes',
+        strategy: {
+          primaryTactic: 'analyzing',
+          expectedSavings: 0,
+        },
+      },
+    });
+
+    // Fire-and-forget: research + strategy + call
+    (async () => {
+    try {
     // Start research phase
     updateNegotiationStatus(negotiation.id, 'researching');
     emitStatusChange(negotiation.id, 'researching');
@@ -705,20 +722,12 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
       }
     }
     
-    const updatedNeg = getNegotiation(negotiation.id);
-    
-    res.status(202).json({
-      success: true,
-      data: {
-        negotiationId: negotiation.id,
-        status: updatedNeg?.status || 'calling',
-        estimatedDuration: '5-10 minutes',
-        strategy: {
-          primaryTactic: strategy.primaryTactic,
-          expectedSavings: strategy.expectedSavings,
-        },
-      },
-    });
+    } catch (asyncErr) {
+      console.error('Async negotiation error:', asyncErr);
+      updateNegotiation(negotiation.id, { status: 'failed' });
+      emitStatusChange(negotiation.id, 'failed');
+    }
+    })();
   } catch (error) {
     console.error('Negotiate error:', error);
     res.status(500).json({
