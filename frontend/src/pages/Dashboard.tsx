@@ -106,14 +106,14 @@ export function Dashboard() {
           </div>
           
           <div className="divide-y divide-[#262626]">
-            {bills.map((bill) => (
+            {bills.filter(bill => bill && bill.id).map((bill) => (
               <Link
                 key={bill.id}
                 to={`/bills/${bill.id}`}
                 className="p-4 flex items-center justify-between hover:bg-[#1a1a1a] transition-colors block"
               >
                 <div className="flex items-center gap-4">
-                  <ProviderLogo provider={bill.provider} />
+                  <ProviderLogo provider={bill.provider || 'Unknown'} />
                   <div>
                     <div className="font-medium">{bill.planName || bill.provider}</div>
                     <div className="text-sm text-[#888] capitalize">{bill.category?.replace('_', ' ')}</div>
