@@ -606,24 +606,29 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
       // Simulate negotiation completing after 8 seconds
       setTimeout(async () => {
         const targetRate = bill.currentRate * 0.80; // 20% savings
-        const annualSavings = (bill.currentRate - targetRate) * 12;
+        const monthlySavings = bill.currentRate - targetRate;
+        const totalSavings = monthlySavings * 12;
 
         updateNegotiation(negotiation.id, {
           status: 'success',
           newRate: targetRate,
-          monthlySavings: bill.currentRate - targetRate,
-          annualSavings,
+          monthlySavings,
+          totalSavings,
           completedAt: new Date(),
-          confidence: 0.95,
         });
 
         updateBillStatus(id, 'active');
         emitStatusChange(negotiation.id, 'success', {
           newRate: targetRate,
-          monthlySavings: bill.currentRate - targetRate,
-          annualSavings,
+          monthlySavings,
+          annualSavings: totalSavings,
         });
-        emitCompletion(negotiation.id);
+        emitCompletion(negotiation.id, {
+          success: true,
+          newRate: targetRate,
+          monthlySavings,
+          annualSavings: totalSavings,
+        });
 
         console.log(`[DEMO MODE] Negotiation completed: $${bill.currentRate} → $${targetRate}/mo`);
       }, 8000);
