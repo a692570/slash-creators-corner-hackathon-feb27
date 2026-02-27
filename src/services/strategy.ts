@@ -26,8 +26,16 @@ export async function buildStrategy(
   bill: Bill,
   competitorRates: CompetitorRate[]
 ): Promise<NegotiationStrategy> {
-  // Get leverage data from Neo4j graph
-  const leverage = await getLeverage(bill.provider);
+  // Get leverage data from Neo4j graph (3s timeout)
+  let leverage: Awaited<ReturnType<typeof getLeverage>> | null = null;
+  try {
+    leverage = await Promise.race([
+      getLeverage(bill.provider),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
+  } catch (e) {
+    console.log('[Strategy] Neo4j getLeverage failed:', e);
+  }
   
   // Merge graph rates with research rates (prefer graph data - it's verified)
   let mergedRates = [...competitorRates];

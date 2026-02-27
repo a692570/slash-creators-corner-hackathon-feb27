@@ -20,8 +20,49 @@ interface TavilySearchResponse {
   results: TavilySearchResult[];
 }
 
+// Mock competitor rates for fallback when APIs timeout/fail
+const MOCK_COMPETITOR_RATES: Record<ProviderId, CompetitorRate[]> = {
+  comcast: [
+    { provider: 'verizon', planName: 'Fios 300 Mbps', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'spectrum', planName: 'Internet Ultra', monthlyRate: 69.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'att', planName: 'Fiber 300', monthlyRate: 55.00, source: 'mock', scrapedAt: new Date() },
+  ],
+  verizon: [
+    { provider: 'comcast', planName: 'Xfinity Performance', monthlyRate: 59.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'spectrum', planName: 'Internet Standard', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+  ],
+  att: [
+    { provider: 'verizon', planName: 'Fios 300 Mbps', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'comcast', planName: 'Xfinity Performance Pro', monthlyRate: 69.99, source: 'mock', scrapedAt: new Date() },
+  ],
+  spectrum: [
+    { provider: 'verizon', planName: 'Fios 200 Mbps', monthlyRate: 39.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'comcast', planName: 'Xfinity Performance', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+  ],
+  cox: [
+    { provider: 'verizon', planName: 'Fios 300 Mbps', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'spectrum', planName: 'Internet Standard', monthlyRate: 59.99, source: 'mock', scrapedAt: new Date() },
+  ],
+  optimum: [
+    { provider: 'verizon', planName: 'Fios 300 Mbps', monthlyRate: 49.99, source: 'mock', scrapedAt: new Date() },
+    { provider: 'comcast', planName: 'Xfinity Performance', monthlyRate: 54.99, source: 'mock', scrapedAt: new Date() },
+  ],
+  tmobile: [],
+  verizon_wireless: [],
+  att_wireless: [],
+  mint_mobile: [],
+  cricket: [],
+  state_farm: [],
+  geico: [],
+  progressive: [],
+  allstate: [],
+  liberty_mutual: [],
+  usaa: [],
+  other: [],
+};
+
 /**
- * Search Tavily for competitor pricing
+ * Search Tavily for competitor pricing with 5s timeout
  */
 async function searchTavily(query: string): Promise<TavilySearchResponse> {
   const apiKey = process.env.TAVILY_API_KEY;
@@ -30,25 +71,37 @@ async function searchTavily(query: string): Promise<TavilySearchResponse> {
     throw new Error('TAVILY_API_KEY not configured');
   }
 
-  const response = await fetch('https://api.tavily.com/search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query,
-      search_depth: 'advanced',
-      max_results: 5,
-      api_key: apiKey,
-    }),
-  });
+  // 5 second timeout for demo reliability
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-  if (!response.ok) {
-    throw new Error(`Tavily API error: ${response.status}`);
+  try {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        search_depth: 'advanced',
+        max_results: 5,
+        api_key: apiKey,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error('Tavily API error: ' + response.status);
+    }
+
+    const data = await response.json() as TavilySearchResponse;
+    return data;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
   }
-
-  const data = await response.json() as TavilySearchResponse;
-  return data;
 }
 
 /**
@@ -58,7 +111,7 @@ function parseCompetitorRate(result: TavilySearchResult, providerId: ProviderId)
   const content = result.content.toLowerCase();
   
   // Extract price from content (look for $XX.XX pattern)
-  const priceMatch = content.match(/\$?(\d{2,3}\.?\d{0,2})/);
+  const priceMatch = content.match(/\$(\d{2,3}\.?\d{0,2})/);
   const monthlyRate = priceMatch ? parseFloat(priceMatch[1]) : 0;
 
   return {
@@ -85,12 +138,16 @@ function extractContractTerms(content: string): string | undefined {
 }
 
 /**
+ * Get mock competitor rates for fallback
+ */
+function getMockCompetitorRates(provider: ProviderId): CompetitorRate[] {
+  return MOCK_COMPETITOR_RATES[provider] || [];
+}
+
+/**
  * Research competitor rates for a given provider
- * Uses both Tavily and Yutori (if configured) in parallel
- * Merges results, preferring Yutori when both return data for same provider
- * @param provider - The current provider (e.g., 'comcast')
- * @param currentRate - The customer's current monthly rate
- * @returns Array of CompetitorRate objects
+ * Uses both Tavily and Yutori (if configured) in parallel with timeouts
+ * Falls back to mock data if all APIs fail/timeout
  */
 export async function researchCompetitorRates(
   provider: ProviderId,
@@ -99,7 +156,7 @@ export async function researchCompetitorRates(
   const providerInfo = PROVIDERS[provider as ProviderId];
   
   if (!providerInfo) {
-    throw new Error(`Unknown provider: ${provider}`);
+    throw new Error('Unknown provider: ' + provider);
   }
 
   const competitors = Object.values(PROVIDERS)
@@ -107,19 +164,34 @@ export async function researchCompetitorRates(
     .map(p => p.displayName);
 
   // Build search query
-  const query = `${providerInfo.displayName} internet plans ${currentRate} compare ${competitors.join(' ')} 2026`;
+  const query = providerInfo.displayName + ' internet plans ' + currentRate + ' compare ' + competitors.join(' ') + ' 2026';
 
-  // Run Tavily and Yutori in parallel using Promise.allSettled
+  // Run Tavily and Yutori in parallel with 5s timeout each
+  const timeoutPromise = <T>(promise: Promise<T>, ms: number, label: string): Promise<T | null> => {
+    return Promise.race([
+      promise,
+      new Promise<null>(resolve => setTimeout(() => {
+        console.log('[' + label + '] Timed out after ' + ms + 'ms');
+        resolve(null);
+      }, ms))
+    ]);
+  };
+
+  // Run both APIs with timeouts, catching all errors
   const [tavilyResult, yutoriResult] = await Promise.allSettled([
-    searchTavily(query).then(results => ({ source: 'tavily' as const, results })),
-    isYutoriConfigured() 
-      ? researchCompetitorWithYutori(provider, currentRate).then(rates => ({ source: 'yutori' as const, rates }))
-      : Promise.resolve({ source: 'yutori' as const, rates: [] as CompetitorRate[] })
+    timeoutPromise(searchTavily(query).then(results => ({ source: 'tavily' as const, results })), 5000, 'Tavily'),
+    timeoutPromise(
+      isYutoriConfigured() 
+        ? researchCompetitorWithYutori(provider, currentRate).then(rates => ({ source: 'yutori' as const, rates }))
+        : Promise.resolve({ source: 'yutori' as const, rates: [] as CompetitorRate[] }),
+      5000,
+      'Yutori'
+    ),
   ]);
 
   // Extract Tavily results
   let tavilyRates: CompetitorRate[] = [];
-  if (tavilyResult.status === 'fulfilled') {
+  if (tavilyResult.status === 'fulfilled' && tavilyResult.value) {
     try {
       const allProviders: Record<string, ProviderId> = {
         'comcast': 'comcast', 'xfinity': 'comcast',
@@ -132,48 +204,69 @@ export async function researchCompetitorRates(
       
       tavilyRates = tavilyResult.value.results.results
         .map(result => {
-          // Try to identify which provider this result is about
           const titleLower = result.title.toLowerCase();
           const contentLower = result.content.toLowerCase();
-          const text = `${titleLower} ${contentLower}`;
+          const text = titleLower + ' ' + contentLower;
           
           for (const [name, id] of Object.entries(allProviders)) {
             if (text.includes(name) && id !== provider) {
               return parseCompetitorRate(result, id);
             }
           }
-          
-          // Default to other provider if can't identify
           return null;
         })
         .filter((rate): rate is CompetitorRate => rate !== null && rate.monthlyRate > 0);
+      
+      if (tavilyRates.length > 0) {
+        console.log('[Tavily] Found ' + tavilyRates.length + ' competitor rates');
+      }
     } catch (parseError) {
       console.error('[Tavily] Failed to parse results:', parseError);
     }
-  } else {
+  } else if (tavilyResult.status === 'rejected') {
     console.error('[Tavily] Search failed:', tavilyResult.reason);
+  } else {
+    console.log('[Tavily] No results (timed out or empty)');
   }
 
   // Extract Yutori results
   let yutoriRates: CompetitorRate[] = [];
-  if (yutoriResult.status === 'fulfilled') {
+  if (yutoriResult.status === 'fulfilled' && yutoriResult.value) {
     yutoriRates = yutoriResult.value.rates;
     if (yutoriRates.length > 0) {
-      console.log(`[Yutori] Found ${yutoriRates.length} competitor rates`);
+      console.log('[Yutori] Found ' + yutoriRates.length + ' competitor rates');
     }
-  } else {
+  } else if (yutoriResult.status === 'rejected') {
     console.error('[Yutori] Research failed:', yutoriResult.reason);
+  } else {
+    console.log('[Yutori] No results (timed out or empty)');
   }
 
   // Merge results, preferring Yutori when both have data for same provider
-  const mergedRates = mergeCompetitorRates(tavilyRates, yutoriRates);
+  let mergedRates = mergeCompetitorRates(tavilyRates, yutoriRates);
+
+  // If no real results, use mock data for demo reliability
+  if (mergedRates.length === 0) {
+    console.log('[Research] All APIs failed/timed out, using mock data for demo');
+    mergedRates = getMockCompetitorRates(provider);
+  }
 
   // Sort by rate (lowest first)
   mergedRates.sort((a, b) => a.monthlyRate - b.monthlyRate);
 
-  // Store in Neo4j knowledge graph for leverage in future negotiations
+  // Store in Neo4j knowledge graph for leverage in future negotiations (with timeout)
   if (mergedRates.length > 0) {
-    await storeCompetitorRates(provider, mergedRates);
+    try {
+      await Promise.race([
+        storeCompetitorRates(provider, mergedRates),
+        new Promise<void>(resolve => setTimeout(() => {
+          console.log('[Graph] Store rates timed out, continuing...');
+          resolve();
+        }, 3000))
+      ]);
+    } catch (graphError) {
+      console.error('[Graph] Failed to store rates:', graphError);
+    }
   }
 
   return mergedRates;
@@ -181,7 +274,6 @@ export async function researchCompetitorRates(
 
 /**
  * Merge competitor rates from multiple sources
- * Prefers Yutori results when both sources have data for the same provider
  */
 function mergeCompetitorRates(
   tavilyRates: CompetitorRate[],
@@ -189,12 +281,10 @@ function mergeCompetitorRates(
 ): CompetitorRate[] {
   const merged = new Map<string, CompetitorRate>();
   
-  // Add Tavily results first
   for (const rate of tavilyRates) {
     merged.set(rate.provider, rate);
   }
   
-  // Yutori results override Tavily for same provider (deeper research)
   for (const rate of yutoriRates) {
     merged.set(rate.provider, rate);
   }
@@ -217,7 +307,7 @@ export async function getCompetitiveAnalysis(
   
   const lowerRateCompetitors = competitorRates.filter(r => r.monthlyRate < currentRate);
   const leverage = lowerRateCompetitors.length > 0 
-    ? Math.min(lowerRateCompetitors.length / 3, 1)  // 0-1 scale
+    ? Math.min(lowerRateCompetitors.length / 3, 1)
     : 0;
 
   let recommendation = '';
