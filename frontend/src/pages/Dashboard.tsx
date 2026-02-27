@@ -58,6 +58,10 @@ export function Dashboard() {
     });
   };
 
+  // Safety: ensure bills and negotiations are always valid arrays
+  const safeBills = Array.isArray(bills) ? bills.filter(b => b && b.id && b.provider) : [];
+  const safeNegotiations = Array.isArray(negotiations) ? negotiations.filter(n => n && n.id) : [];
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -105,14 +109,14 @@ export function Dashboard() {
       {/* Sponsor integration status removed - too technical for demo */}
 
       {/* Bills List */}
-      {bills.length > 0 && (
+      {safeBills.length > 0 && (
         <div className="bg-[#141414] border border-[#262626] rounded-xl mb-6">
           <div className="p-5 border-b border-[#262626] flex items-center justify-between">
             <h2 className="font-semibold">Your Bills</h2>
           </div>
           
           <div className="divide-y divide-[#262626]">
-            {bills.filter(bill => bill && bill.id).map((bill) => (
+            {safeBills.map((bill) => (
               <Link
                 key={bill.id}
                 to={`/bills/${bill.id}`}
@@ -149,7 +153,7 @@ export function Dashboard() {
         </div>
         
         <div className="divide-y divide-[#262626]">
-          {negotiations.map((negotiation) => (
+          {safeNegotiations.map((negotiation) => (
             <Link
               key={negotiation.id}
               to={`/negotiations/${negotiation.id}`}
@@ -178,7 +182,7 @@ export function Dashboard() {
             </Link>
           ))}
           
-          {negotiations.length === 0 && (
+          {safeNegotiations.length === 0 && (
             <div className="p-8 text-center text-[#888]">
               No negotiations yet. Click a bill and hit "Negotiate" to get started.
             </div>
