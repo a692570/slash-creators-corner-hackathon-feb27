@@ -30,7 +30,7 @@ import { initiateCall, handleWebhook } from '../services/voice.js';
 import { parseCCStatement } from '../services/scanner.js';
 import { createDemoIVR, DemoIVRResult } from '../services/demo-ivr.js';
 import { seedDemoBills, isDemoSeeded, getDemoUserId } from '../services/demo-seed.js';
-import { subscribe, unsubscribe, emitStatusChange } from '../services/events.js';
+import { subscribe, unsubscribe, emitStatusChange, emitCompletion } from '../services/events.js';
 import {
   BillCreateInput,
   BillUpdateInput,
@@ -591,30 +591,67 @@ router.post('/bills/:id/negotiate', async (req: Request, res: Response): Promise
     });
     emitStatusChange(negotiation.id, 'calling');
     
-    // In production, initiate the call here
-    // For MVP, we'll just return the negotiation
-    try {
-      const callResult = await initiateCall({
-        ...negotiation,
-        competitorRates,
-        selectedTactics: strategy.tactics,
-        status: 'calling',
-      });
-      
-      updateNegotiation(negotiation.id, {
-        telnyxCallId: callResult.callId,
-        startedAt: new Date(),
-        status: 'negotiating',
-      });
-      emitStatusChange(negotiation.id, 'negotiating');
-    } catch (callError) {
-      console.error('Call initiation failed:', callError);
-      // Continue anyway - for demo purposes
+    // Check if DEMO_MODE is enabled for reliable hackathon demos
+    const demoMode = process.env.DEMO_MODE === 'true';
+
+    if (demoMode) {
+      // DEMO MODE: Simulate negotiation without real call
+      console.log('[DEMO MODE] Simulating negotiation for bill:', id);
       updateNegotiation(negotiation.id, {
         startedAt: new Date(),
         status: 'negotiating',
       });
       emitStatusChange(negotiation.id, 'negotiating');
+
+      // Simulate negotiation completing after 8 seconds
+      setTimeout(async () => {
+        const targetRate = bill.currentRate * 0.80; // 20% savings
+        const annualSavings = (bill.currentRate - targetRate) * 12;
+
+        updateNegotiation(negotiation.id, {
+          status: 'success',
+          newRate: targetRate,
+          monthlySavings: bill.currentRate - targetRate,
+          annualSavings,
+          completedAt: new Date(),
+          confidence: 0.95,
+        });
+
+        updateBillStatus(id, 'active');
+        emitStatusChange(negotiation.id, 'success', {
+          newRate: targetRate,
+          monthlySavings: bill.currentRate - targetRate,
+          annualSavings,
+        });
+        emitCompletion(negotiation.id);
+
+        console.log(`[DEMO MODE] Negotiation completed: $${bill.currentRate} → $${targetRate}/mo`);
+      }, 8000);
+    } else {
+      // PRODUCTION MODE: Make real Telnyx call
+      try {
+        const callResult = await initiateCall({
+          ...negotiation,
+          competitorRates,
+          selectedTactics: strategy.tactics,
+          status: 'calling',
+        });
+
+        updateNegotiation(negotiation.id, {
+          telnyxCallId: callResult.callId,
+          startedAt: new Date(),
+          status: 'negotiating',
+        });
+        emitStatusChange(negotiation.id, 'negotiating');
+      } catch (callError) {
+        console.error('Call initiation failed:', callError);
+        // Continue anyway - for demo purposes
+        updateNegotiation(negotiation.id, {
+          startedAt: new Date(),
+          status: 'negotiating',
+        });
+        emitStatusChange(negotiation.id, 'negotiating');
+      }
     }
     
     const updatedNeg = getNegotiation(negotiation.id);
