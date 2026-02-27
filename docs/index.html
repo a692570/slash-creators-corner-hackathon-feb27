@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slash - AI Bill Negotiation Agent</title>
+<meta name="description" content="Slash is an AI agent that calls providers and negotiates bills down. Built for Autonomous Agents Hackathon SF 2026.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://a692570.github.io/slash/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Slash - AI Bill Negotiation Agent">
+<meta property="og:description" content="AI agent that negotiates your bills over real phone lines. Built for Autonomous Agents Hackathon SF 2026.">
+<meta property="og:url" content="https://a692570.github.io/slash/">
+<meta property="og:image" content="https://a692570.github.io/slash/flow.gif">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Slash - AI Bill Negotiation Agent">
+<meta name="twitter:description" content="AI agent that negotiates your bills over real phone lines.">
+<meta name="twitter:image" content="https://a692570.github.io/slash/flow.gif">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔪</text></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#111;color:#fff;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+a:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
+
+/* Full bleed sections */
+.full{width:100%;padding:0 clamp(20px,4vw,48px)}
+
+/* Hero */
+.hero{min-height:85vh;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:120px 0 80px;gap:48px}
+.hero-visual{display:flex;align-items:center;justify-content:center}
+.hero-visual svg{width:100%;max-width:420px;height:auto}
+
+/* Knife slash animation */
+@keyframes slashIn{
+  0%{stroke-dashoffset:500;opacity:0}
+  20%{opacity:1}
+  100%{stroke-dashoffset:0;opacity:0.9}
+}
+@keyframes fadeUp{
+  0%{opacity:0;transform:translateY(8px)}
+  100%{opacity:1;transform:translateY(0)}
+}
+@keyframes popIn{
+  0%{opacity:0;transform:scale(0.8)}
+  60%{transform:scale(1.05)}
+  100%{opacity:1;transform:scale(1)}
+}
+.knife-line{stroke-dasharray:500;stroke-dashoffset:500;animation:slashIn 1s ease-out 0.3s forwards}
+.knife-blade{opacity:0;animation:fadeUp 0.4s ease-out 1.1s forwards}
+.knife-handle{opacity:0;animation:fadeUp 0.4s ease-out 1.1s forwards}
+.cut-line{opacity:0;animation:fadeUp 0.3s ease-out 1.3s forwards}
+.new-price{opacity:0;animation:popIn 0.5s ease-out 1.5s forwards}
+.savings-badge{opacity:0;animation:popIn 0.4s ease-out 1.8s forwards}
+.old-price{opacity:0;animation:fadeUp 0.4s ease-out 0.8s forwards}
+.bill-element{opacity:0;animation:fadeUp 0.4s ease-out 0.1s forwards}
+
+/* Hero diagram */
+.hero-diagram{margin-bottom:48px;padding:40px 0}
+.flow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+.flow-node{text-align:center;padding:20px 28px;border:1px solid #333;position:relative}
+.flow-node .label{font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#555;margin-bottom:4px}
+.flow-node .name{font-size:18px;font-weight:800;letter-spacing:-0.5px}
+.flow-node.active{border-color:#fff;background:rgba(255,255,255,.03)}
+.flow-arrow{font-size:20px;color:#333;padding:0 16px;flex-shrink:0}
+.flow-sub{display:flex;gap:12px;margin-top:20px;justify-content:center}
+.flow-tag{font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#333;border:1px solid #222;padding:4px 10px}
+.hero-badge{font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#666;margin-bottom:24px}
+.hero h1{font-size:clamp(64px,12vw,140px);font-weight:900;line-height:.88;letter-spacing:-4px;margin-bottom:24px}
+.hero p{font-size:18px;color:#9a9a9a;max-width:440px;line-height:1.6;font-weight:400}
+
+/* Ticker strip */
+.ticker{background:#fff;color:#111;padding:14px 0;overflow:hidden;white-space:nowrap}
+.ticker-inner{display:inline-block;animation:scroll 25s linear infinite}
+.ticker span{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-right:48px}
+.ticker .savings-check{color:#16a34a}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* Stats strip */
+.stats-strip{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #222}
+.stats-strip .stat{padding:40px clamp(16px,3vw,32px);border-right:1px solid #222}
+.stats-strip .stat:last-child{border-right:none}
+.stat-val{font-size:clamp(32px,5vw,48px);font-weight:800;letter-spacing:-1px;line-height:1}
+.stat-label{font-size:11px;font-weight:500;color:#777;letter-spacing:2px;text-transform:uppercase;margin-top:8px}
+
+/* Section */
+.section{padding:100px clamp(20px,4vw,48px)}
+.section-alt{background:rgba(255,255,255,.015)}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:56px;flex-wrap:wrap;gap:12px}
+.section-num{font-size:11px;font-weight:600;color:#555;letter-spacing:3px;text-transform:uppercase}
+.section-title{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-1px}
+
+/* How it works */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid #222}
+.step{padding:32px;border-right:1px solid #222;transition:background .3s}
+.step:last-child{border-right:none}
+.step:hover{background:rgba(255,255,255,.02)}
+.step-num{font-size:80px;font-weight:900;color:transparent;line-height:1;margin-bottom:16px;-webkit-text-stroke:1px #333;transition:all .3s}
+.step:hover .step-num{-webkit-text-stroke-color:#555}
+.step h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.step p{font-size:13px;color:#888;line-height:1.7}
+
+/* Verticals grid */
+.verticals{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.vert{padding:40px clamp(20px,3vw,36px);border:1px solid #222;margin-top:-1px;margin-left:-1px}
+.vert h3{font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.vert .amt{font-size:clamp(28px,4vw,36px);font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+.vert .names{font-size:12px;color:#777;line-height:1.7}
+
+/* Comparison */
+.comp-grid{border:1px solid #222}
+.comp-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border-bottom:1px solid #222}
+.comp-row:last-child{border-bottom:none}
+.comp-row div{padding:16px 24px;font-size:14px;border-right:1px solid #222}
+.comp-row div:last-child{border-right:none}
+.comp-header div{font-size:11px;font-weight:600;color:#555;letter-spacing:2px;text-transform:uppercase}
+.comp-slash{background:rgba(255,255,255,.05);border-left:2px solid #fff}
+.comp-slash div{font-weight:700}
+.comp-slash div:first-child{color:#fff}
+.comp-check{color:#16a34a}
+.comp-x{color:#555}
+.dim{color:#333}
+
+/* Savings calculator */
+.calc{max-width:560px;margin:0 auto;padding:48px;border:1px solid #222;text-align:center}
+.calc h3{font-size:18px;font-weight:700;margin-bottom:24px}
+.calc-input{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px}
+.calc-input span{font-size:32px;font-weight:800;color:#555}
+.calc-input input{background:transparent;border:none;border-bottom:2px solid #333;font-family:Inter,sans-serif;font-size:32px;font-weight:800;color:#fff;width:140px;text-align:center;outline:none;transition:border-color .3s}
+.calc-input input:focus{border-color:#fff}
+.calc-result{font-size:14px;color:#666;line-height:1.8;min-height:50px}
+.calc-result .big{font-size:28px;font-weight:800;color:#fff;display:block;margin-top:4px}
+
+/* Tech */
+.tech{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid #222}
+.tech-item{padding:32px;border-right:1px solid #222;border-bottom:1px solid #222;transition:background .3s}
+.tech-item:nth-child(3n){border-right:none}
+.tech-item:nth-last-child(-n+3){border-bottom:none}
+.tech-item:hover{background:rgba(255,255,255,.03)}
+.tech-item h3{font-size:15px;font-weight:700;margin-bottom:8px}
+.tech-item .tech-tag{font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:8px}
+.tech-item p{font-size:13px;color:#888;line-height:1.7}
+
+/* CTA */
+.cta{display:flex;justify-content:space-between;align-items:center;padding:64px clamp(20px,4vw,48px);border-top:1px solid #222;flex-wrap:wrap;gap:24px}
+.cta h2{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-1px}
+.cta-buttons{display:flex;gap:16px;flex-wrap:wrap}
+.cta-btn{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border:1px solid #fff;padding:16px 36px;transition:all .2s}
+.cta-btn:hover{background:#fff;color:#111}
+.cta-btn-ghost{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border:1px solid #444;color:#aaa;padding:16px 36px;transition:all .2s}
+.cta-btn-ghost:hover{border-color:#666;color:#fff}
+
+/* Footer */
+footer{padding:32px clamp(20px,4vw,48px);font-size:11px;color:#555;letter-spacing:1px;border-top:1px solid #222}
+.footer-top{display:flex;justify-content:space-between;margin-bottom:12px}
+.footer-sponsors{font-size:10px;color:#333;letter-spacing:1px}
+
+/* Responsive */
+@media(max-width:768px){
+  .hero{grid-template-columns:1fr;gap:24px}
+  .hero-visual{padding-bottom:0;justify-content:flex-start}
+  .hero-visual svg{max-width:280px}
+  .stats-strip{grid-template-columns:repeat(2,1fr)}
+  .stats-strip .stat:nth-child(2){border-right:none}
+  .steps{grid-template-columns:1fr}
+  .step{border-right:none;border-bottom:1px solid #222}
+  .step:last-child{border-bottom:none}
+  .verticals{grid-template-columns:1fr}
+  .tech{grid-template-columns:1fr}
+  .tech-item{border-right:none!important;border-bottom:1px solid #222!important}
+  .tech-item:last-child{border-bottom:none!important}
+  .comp-row{grid-template-columns:1.5fr 1fr 1fr 1fr}
+  .cta{flex-direction:column;text-align:center}
+  .calc{padding:32px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="full">
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">Autonomous Agents Hackathon SF / Feb 27</div>
+      <h1>Slash</h1>
+      <p>An AI agent that calls your providers and negotiates your bills down. You do nothing. It takes 10%.</p>
+    </div>
+    <div class="hero-visual">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Bill/receipt -->
+        <rect class="bill-element" x="100" y="60" width="200" height="280" rx="4" fill="#1a1a1a" stroke="#333" stroke-width="1.5"/>
+        <!-- Bill lines -->
+        <rect class="bill-element" x="130" y="100" width="100" height="6" rx="2" fill="#333" style="animation-delay:0.15s"/>
+        <rect class="bill-element" x="130" y="120" width="140" height="4" rx="2" fill="#222" style="animation-delay:0.2s"/>
+        <rect class="bill-element" x="130" y="136" width="120" height="4" rx="2" fill="#222" style="animation-delay:0.25s"/>
+        <rect class="bill-element" x="130" y="152" width="130" height="4" rx="2" fill="#222" style="animation-delay:0.3s"/>
+        <rect class="bill-element" x="130" y="168" width="100" height="4" rx="2" fill="#222" style="animation-delay:0.35s"/>
+        <line class="bill-element" x1="130" y1="190" x2="270" y2="190" stroke="#333" stroke-width="1" style="animation-delay:0.4s"/>
+        <!-- Total amount with strikethrough -->
+        <text class="old-price" x="130" y="218" font-family="Inter,sans-serif" font-size="14" font-weight="600" fill="#555" letter-spacing="1">TOTAL</text>
+        <text class="old-price" x="210" y="218" font-family="Inter,sans-serif" font-size="14" font-weight="700" fill="#444">$189.00</text>
+        <line class="old-price" x1="205" y1="214" x2="278" y2="214" stroke="#666" stroke-width="1.5" style="animation-delay:0.9s"/>
+        <!-- Slash/knife cutting diagonally -->
+        <line class="knife-line" x1="60" y1="50" x2="340" y2="350" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Knife blade -->
+        <polygon class="knife-blade" points="325,335 350,355 340,360 315,340" fill="#fff"/>
+        <!-- Knife handle -->
+        <rect class="knife-handle" x="340" y="349" width="36" height="14" rx="3" fill="#cc2222" transform="rotate(45 340 349)"/>
+        <!-- Cut effect lines -->
+        <line class="cut-line" x1="155" y1="145" x2="140" y2="155" stroke="#fff" stroke-width="1" style="animation-delay:1.35s"/>
+        <line class="cut-line" x1="175" y1="165" x2="160" y2="175" stroke="#fff" stroke-width="1" style="animation-delay:1.4s"/>
+        <line class="cut-line" x1="220" y1="210" x2="205" y2="220" stroke="#fff" stroke-width="1" style="animation-delay:1.45s"/>
+        <!-- New lower price -->
+        <text class="new-price" x="130" y="248" font-family="Inter,sans-serif" font-size="22" font-weight="900" fill="#fff" letter-spacing="-0.5">$112.00</text>
+        <!-- Savings badge -->
+        <g class="savings-badge">
+          <rect x="220" y="240" width="70" height="24" rx="12" fill="#fff"/>
+          <text x="255" y="256" font-family="Inter,sans-serif" font-size="11" font-weight="800" fill="#111" text-anchor="middle">-41%</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+</div>
+
+<!-- Ticker -->
+<div style="padding:12px 0 0;text-align:center"><span style="font-size:11px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:#555">Real savings, real calls</span></div>
+<div class="ticker">
+  <div class="ticker-inner">
+    <span>Xfinity $129 → $104 <span class="savings-check">✓</span></span>
+    <span>T-Mobile $85 → $70 <span class="savings-check">✓</span></span>
+    <span>Geico $247 → $198 <span class="savings-check">✓</span></span>
+    <span>Spectrum $90 → $70 <span class="savings-check">✓</span></span>
+    <span>AT&T $185 → $140 <span class="savings-check">✓</span></span>
+    <span>Verizon $130 → $104 <span class="savings-check">✓</span></span>
+    <span>Progressive $180 → $145 <span class="savings-check">✓</span></span>
+    <span>Allstate $210 → $168 <span class="savings-check">✓</span></span>
+    <span>Xfinity $129 → $104 <span class="savings-check">✓</span></span>
+    <span>T-Mobile $85 → $70 <span class="savings-check">✓</span></span>
+    <span>Geico $247 → $198 <span class="savings-check">✓</span></span>
+    <span>Spectrum $90 → $70 <span class="savings-check">✓</span></span>
+    <span>AT&T $185 → $140 <span class="savings-check">✓</span></span>
+    <span>Verizon $130 → $104 <span class="savings-check">✓</span></span>
+    <span>Progressive $180 → $145 <span class="savings-check">✓</span></span>
+    <span>Allstate $210 → $168 <span class="savings-check">✓</span></span>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-strip">
+  <div class="stat">
+    <div class="stat-val" data-target="400" data-prefix="$" data-suffix="+">$0</div>
+    <div class="stat-label">Monthly Overpay</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" data-target="10" data-suffix="%">0%</div>
+    <div class="stat-label">Our Fee</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" data-target="70" data-suffix="%+">0%</div>
+    <div class="stat-label">Success Rate</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" data-target="4">0</div>
+    <div class="stat-label">Verticals</div>
+  </div>
+</div>
+
+<!-- How It Works -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-title">How it works</div>
+    <div class="section-num">01</div>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Add your bill</h3>
+      <p>Enter your provider and rate. Or scan a credit card statement and we detect recurring charges automatically.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>AI calls for you</h3>
+      <p>We research competitor rates, build a strategy, and call the retention department. Real phone call, real negotiation.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Rate drops</h3>
+      <p>Your bill goes down. You pay 10% of what you saved. No hold music, no stress, no wasted afternoon.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Verticals -->
+<div class="section section-alt">
+  <div class="section-head">
+    <div class="section-title">What we negotiate</div>
+    <div class="section-num">02</div>
+  </div>
+  <div class="verticals">
+    <div class="vert">
+      <h3>Internet / Cable</h3>
+      <div class="amt">$20-50/mo</div>
+      <div class="names">Xfinity, Spectrum, AT&T, Verizon Fios, Cox, Optimum</div>
+    </div>
+    <div class="vert">
+      <h3>Cell Phone</h3>
+      <div class="amt">$15-40/mo</div>
+      <div class="names">T-Mobile, Verizon, AT&T, Mint Mobile, Cricket</div>
+    </div>
+    <div class="vert">
+      <h3>Insurance</h3>
+      <div class="amt">$30-100/mo</div>
+      <div class="names">State Farm, Geico, Progressive, Allstate, Liberty Mutual</div>
+    </div>
+    <div class="vert">
+      <h3>Medical Bills</h3>
+      <div class="amt">20-50% off</div>
+      <div class="names">Hospitals, clinics, labs. Any provider.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Savings Calculator -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-title">What could you save?</div>
+    <div class="section-num">03</div>
+  </div>
+  <div class="calc">
+    <h3>Enter your monthly bill</h3>
+    <div class="calc-input">
+      <span>$</span>
+      <input type="number" id="calcInput" placeholder="129" min="0" max="9999">
+      <span style="color:#333">/mo</span>
+    </div>
+    <div class="calc-result" id="calcResult">
+      Type your bill amount above
+    </div>
+  </div>
+</div>
+
+<!-- Comparison -->
+<div class="section section-alt">
+  <div class="section-head">
+    <div class="section-title">vs. the others</div>
+    <div class="section-num">04</div>
+  </div>
+  <div class="comp-grid">
+    <div class="comp-row comp-header">
+      <div>Service</div>
+      <div>Fee</div>
+      <div>AI Voice</div>
+      <div>Research</div>
+    </div>
+    <div class="comp-row comp-slash">
+      <div>Slash</div>
+      <div>10%</div>
+      <div><span class="comp-check">✓</span> Yes</div>
+      <div><span class="comp-check">✓</span> Yes</div>
+    </div>
+    <div class="comp-row">
+      <div>Trim</div>
+      <div>25-40%</div>
+      <div><span class="comp-x">✗</span> <span class="dim">No</span></div>
+      <div>Limited</div>
+    </div>
+    <div class="comp-row">
+      <div>Billshark</div>
+      <div>40%</div>
+      <div><span class="comp-x">✗</span> <span class="dim">No</span></div>
+      <div>Limited</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tech -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-title">Under the hood</div>
+    <div class="section-num">05</div>
+  </div>
+  <div class="tech">
+    <div class="tech-item">
+      <div class="tech-tag">Voice</div>
+      <h3>Telnyx AI Assistants</h3>
+      <p>Real outbound calls via Call Control. AI dials retention departments, negotiates live, and reports back. Not chatbot theater.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Research</div>
+      <h3>Tavily</h3>
+      <p>Real-time competitor pricing research. Scrapes current market rates to build leverage before every call.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Deep Research</div>
+      <h3>Yutori</h3>
+      <p>Autonomous browsing agent that researches provider sites, verifies account details, and finds retention department numbers.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Knowledge Graph</div>
+      <h3>Neo4j</h3>
+      <p>Every negotiation makes the next one smarter. Stores competitor rates, retention offers, and success patterns across providers.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">AI Brain</div>
+      <h3>OpenAI GPT-4o</h3>
+      <p>Powers the negotiation strategy and live conversation. Polite, persistent, data-armed. Escalates to supervisors when needed.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Voice Safety</div>
+      <h3>Modulate Velma</h3>
+      <p>Real-time voice intelligence monitoring. Detects escalation, emotion shifts, and ensures call quality and compliance.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Deployment</div>
+      <h3>Render</h3>
+      <p>Production deployment. Express backend serves the React dashboard and handles Telnyx webhooks at the edge.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Bill Detection</div>
+      <h3>OpenAI Vision</h3>
+      <p>Upload a credit card statement PDF. GPT-4o Vision extracts recurring bills automatically. One-click add to Slash.</p>
+    </div>
+    <div class="tech-item">
+      <div class="tech-tag">Runtime</div>
+      <h3>Node.js + TypeScript</h3>
+      <p>Fully typed Express backend with graceful degradation. Every sponsor integration works independently or together.</p>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta">
+  <h2>Your bills won't cut themselves.</h2>
+  <div class="cta-buttons">
+    <a href="https://github.com/a692570/slash#architecture" class="cta-btn">View Architecture</a>
+    <a href="https://github.com/a692570/slash" class="cta-btn-ghost">View Source</a>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-top">
+    <span>Slash / 2026</span>
+    <span>Built by Abhishek</span>
+  </div>
+  <div class="footer-sponsors">Powered by Telnyx · Tavily · Neo4j · Yutori · Modulate · Render · OpenAI &nbsp;|&nbsp; Built at <a href="https://luma.com/sfagents?tk=Zi7oGC" style="color:#555;text-decoration:underline">Autonomous Agents Hackathon SF</a></div>
+</footer>
+
+<script>
+// Stats count-up on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const els = entry.target.querySelectorAll('.stat-val');
+      els.forEach(el => {
+        const target = parseInt(el.dataset.target);
+        const prefix = el.dataset.prefix || '';
+        const suffix = el.dataset.suffix || '';
+        const duration = 1200;
+        const start = performance.now();
+        
+        function update(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const current = Math.round(target * eased);
+          el.textContent = prefix + current + suffix;
+          if (progress < 1) requestAnimationFrame(update);
+        }
+        requestAnimationFrame(update);
+      });
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.3 });
+
+const statsStrip = document.querySelector('.stats-strip');
+if (statsStrip) observer.observe(statsStrip);
+
+// Savings calculator
+const calcInput = document.getElementById('calcInput');
+const calcResult = document.getElementById('calcResult');
+
+calcInput.addEventListener('input', () => {
+  const val = parseFloat(calcInput.value);
+  if (!val || val <= 0) {
+    calcResult.innerHTML = 'Type your bill amount above';
+    return;
+  }
+  const low = Math.round(val * 0.15);
+  const high = Math.round(val * 0.25);
+  const yearLow = low * 12;
+  const yearHigh = high * 12;
+  calcResult.innerHTML = `Slash could save you <span class="big">$${yearLow} – $${yearHigh}/year</span>That's $${low}–$${high}/month back in your pocket.`;
+});
+</script>
+
+</body>
+</html>

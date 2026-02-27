@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: slash-api
+    env: node
+    region: Oregon
+    plan: free
+    autoDeploy: true
+    branch: main
+    repo: https://github.com/a692570/slash
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: TELNYX_API_KEY
+        value: "your_telnyx_api_key_here"
+        sync: false
+      - key: TELNYX_PHONE_NUMBER
+        value: "+14155491552"
+      - key: TELNYX_CONNECTION_ID
+        value: "2888193300928398948"
+      - key: TELNYX_WEBHOOK_URL
+        value: "https://slash-api-xxxx.onrender.com/api/webhooks/telnyx"
+      - key: TAVILY_API_KEY
+        value: "your_tavily_api_key_here"
+      - key: YUTORI_API_KEY
+        value: "your_yutori_api_key_here"
+      - key: OPENAI_API_KEY
+        value: "your_openai_api_key_here"
+      - key: NEO4J_URI
+        value: "neo4j+s://your_neo4j_uri_here"
+      - key: NEO4J_USER
+        value: "your_neo4j_user_here"
+      - key: NEO4J_PASSWORD
+        value: "your_neo4j_password_here"
+
+  - type: cron
+    name: slash-research-refresh
+    schedule: "0 6 * * *"
+    env: node
+    region: Oregon
+    plan: free
+    branch: main
+    repo: https://github.com/a692570/slash
+    buildCommand: npm install && npm run build
+    startCommand: node -e "fetch('https://slash-api.onrender.com/api/demo/setup',{method:'POST'}).then(r=>r.json()).then(d=>console.log('Refresh done',d)).catch(e=>console.error(e))"
