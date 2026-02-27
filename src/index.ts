@@ -55,18 +55,20 @@ app.use('/api', apiRouter);
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// SPA catch-all - serve index.html for all non-API routes
-// This handles client-side routing (React Router)
-app.get('*', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
-
-// 404 handler
+// SPA catch-all - serve index.html for all non-API, non-static routes
+// This must come after static files middleware but handles all remaining routes
 app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: 'Not found'
-  });
+  // If it's an API route that wasn't matched, return 404 JSON
+  if (_req.path.startsWith('/api/')) {
+    res.status(404).json({
+      success: false,
+      error: 'Not found'
+    });
+    return;
+  }
+
+  // Otherwise serve the React SPA for client-side routing
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
 // Global error handler
